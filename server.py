@@ -7,7 +7,7 @@ import json
 import secrets
 import threading
 import webbrowser
-from commerce import Client, CommerceError, validate_product
+from commerce import Client, CommerceError, validate_product, credential_path
 
 client = Client()
 csrf = secrets.token_urlsafe(32)
@@ -62,6 +62,24 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception:
             self.reply(500, {'error':'처리에 실패했습니다. 등록 요청 후에는 판매자센터에서 결과를 확인하세요.'})
     def action(self, data):
+        if self.path == '/api/shipping-settings':
+            path = credential_path().with_name('shipping.json')
+            if data.get('save'):
+                values = {key: str(data.get(key, '')).strip() for key in
+                          ('shippingAddress', 'returnAddress', 'shippingAddressId', 'returnAddressId')}
+                if not values['shippingAddress'] or not values['returnAddress']:
+                    raise CommerceError('출고지와 반품지 주소를 모두 입력하세요.')
+                if any(len(value) > 500 for value in values.values()):
+                    raise CommerceError('입력값이 너무 깁니다.')
+                for key in ('shippingAddressId', 'returnAddressId'):
+                    if values[key] and (not values[key].isascii() or not values[key].isdigit() or int(values[key]) <= 0):
+                        raise CommerceError('주소 ID는 네이버에서 확인한 양의 정수만 입력하세요.')
+                path.parent.mkdir(parents=True, exist_ok=True)
+                temporary = path.with_suffix('.tmp')
+                temporary.write_text(json.dumps(values, ensure_ascii=False), encoding='utf-8')
+                temporary.replace(path)
+                reviews.clear()
+            return {'settings': json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}}
         if self.path == '/api/connect':
             client.configure(data)
             channels = client.raw('GET', '/v1/seller/channels')

@@ -11,6 +11,20 @@ import server
 from commerce import Client, CommerceError, validate_product
 
 class API(unittest.TestCase):
+    def test_local_shipping_persistence(self):
+        import tempfile
+        from pathlib import Path
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory, patch('server.credential_path', return_value=Path(directory)/'credentials.bin'):
+            handler = SimpleNamespace(path='/api/shipping-settings')
+            settings = {'save': True, 'shippingAddress': 'Test shipping address', 'returnAddress': 'Test return address', 'shippingAddressId': '123', 'returnAddressId': '456'}
+            server.Handler.action(handler, settings)
+            loaded = server.Handler.action(handler, {})['settings']
+            self.assertEqual(loaded['shippingAddress'], settings['shippingAddress'])
+            self.assertEqual(loaded['returnAddressId'], '456')
+            with self.assertRaises(CommerceError):
+                server.Handler.action(handler, dict(settings, shippingAddressId='invented'))
+            self.assertEqual(server.Handler.action(handler, {})['settings'], loaded)
     def test_signature_and_token_cache(self):
         client=Client()
         secret=bcrypt.gensalt().decode()
