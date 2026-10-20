@@ -1,0 +1,20 @@
+{
+  "version": "2026.10.20.3",
+  "files": {
+    ".gitignore": "32dc6621d87491aeb02dc391bfe877eb0adcf6662694a7b89f7c6ff0cab7caf2",
+    "README.md": "05199dbb1e49bba44082a737356916c377dc13fc9ea29d7f9c2d3662ad113cc2",
+    "commerce.py": "5865a53f7761bc378d186bc28c481328abda91fba19b6835897f3b913fe248de",
+    "launch.py": "e734b9b6f8d7f188b4d623bfe35a5f115ead332291ee06356ea505a031ac144a",
+    "requirements.txt": "0ae3abb44d1083f141842a69606af98cb201b1f3ab9d7e921ef125964a74d3b7",
+    "server.py": "28eac24b87340d510a0ebd281030b2a04d539d87b523939e8d6bbc85249c80d6",
+    "start-windows.bat": "5864e8fefde3889e80fde018d549b627ea17517d0f459479fd543d5014c9b65e",
+    "static/app.js": "8d8823f7d606df46343a55fd9bc816673a184839d466ff9b5a51a5d561d35a60",
+    "static/connect.css": "c460e5337d6f5d7289c89312a31f15e72975dd865473d40da3aebdb939e58afe",
+    "static/connect.html": "c5ba3e58546c571415d5067cb3b9d5c31342c0af7c449f25a86e5f6f4e74168f",
+    "static/connect.js": "c1f0e02beb3c8750b6995d6e21b61d848756b09031e8c287745fd2ec2428be02",
+    "static/index.html": "f68004bd5c1ab6eadee32bdb769644f7ab5e5c397ad98745023e8d1c0bd33384",
+    "tests/test_api.py": "eb904a53d6ab3f8999462b6bd401368d47cb49b76a3381a3418fc4e0060024c6",
+    "tests/test_updater.py": "4be9dee93eec0aa55e32979a5f93e3b8b3a2e8ca835f2a38c7c0e18f9461db03",
+    "updater.py": "717199ece8527a6dd8e839342fbd79915ae3b08351b3f487b8006c62202a185c"
+  }
+}

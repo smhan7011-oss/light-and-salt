@@ -4,3 +4,5 @@ __pycache__/
 .env
 credentials.bin
 shipping.json
+.update-backups/
+*.update-tmp
