@@ -7,9 +7,10 @@ import json
 import secrets
 import threading
 import webbrowser
-from commerce import Client, CommerceError, validate_product, credential_path
+from commerce import Client, CommerceError, validate_product, credential_path, ImageAnalysisClient
 
 client = Client()
+ai_client = ImageAnalysisClient()
 csrf = secrets.token_urlsafe(32)
 lock = threading.Lock()
 reviews = {}
@@ -62,6 +63,16 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception:
             self.reply(500, {'error':'처리에 실패했습니다. 등록 요청 후에는 판매자센터에서 결과를 확인하세요.'})
     def action(self, data):
+        if self.path == '/api/ai-status':
+            return {'configured':bool(ai_client.key)}
+        if self.path == '/api/ai-configure':
+            ai_client.configure(data)
+            return {'configured':True, 'saved':bool(data.get('save'))}
+        if self.path == '/api/ai-forget':
+            ai_client.forget()
+            return {'configured':False}
+        if self.path == '/api/analyze-images':
+            return ai_client.analyze(data)
         if self.path == '/api/shipping-settings':
             path = credential_path().with_name('shipping.json')
             if data.get('save'):

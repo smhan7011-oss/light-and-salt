@@ -6,3 +6,4 @@ credentials.bin
 shipping.json
 .update-backups/
 *.update-tmp
+ai-credentials.bin
