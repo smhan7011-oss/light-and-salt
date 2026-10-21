@@ -167,7 +167,9 @@ class ImageAnalysisClient:
         point = obj({'text':{'type':'string'}, 'imageIndex':{'type':'integer'}, 'evidence':{'type':'string'}})
         return obj({'fields':obj({name:evidence for name in AI_FIELDS}),
                     'points':{'type':'array','items':point},
-                    'warnings':{'type':'array','items':{'type':'string'}}})
+                    'warnings':{'type':'array','items':{'type':'string'}},
+                    'photos':{'type':'array','items':obj({'imageIndex':{'type':'integer'},'role':{'type':'string','enum':['main','detail','label','other']},'crop':obj({k:{'type':'integer'} for k in ('x','y','width','height')})})},
+                    'pageCopy':obj({key:obj({'headline':{'type':'string'},'description':{'type':'string'}}) for key in ('hero','introduction','point1','point2','point3')})})
     def analyze(self, data):
         if not self.key:
             raise CommerceError('AI API 키를 먼저 설정해주세요. 네이버 인증 정보와 별도입니다.')
@@ -199,7 +201,13 @@ usage 사용/섭취방법, caution 보관/주의사항, ingredient 식품·건�
 target만 시각적으로 근거 있는 추천 상황으로 작성할 수 있습니다. 질병·치료·성별/연령 적합성 등을 추정하지 마세요.
 points는 서로 다른 실제 특징에서 고객에게 전달할 가치 3개를 짧고 자연스럽게 작성하세요. 각 90자 이하 text, imageIndex, evidence를 필수로 포함하세요.
 사진과 라벨로 3개를 뒷받침하지 못하면 가능한 개수만 반환하고 warnings에 추가 사진이 필요함을 적으세요. 3개를 억지로 채우지 마세요.
-가짜 리뷰, 판매량, 순위, 인증, 효능, 최상급, 경쟁사보다 낫다는 표현을 만들지 마세요. 입력 상품명은 수정하지 마세요.'''
+가짜 리뷰, 판매량, 순위, 인증, 효능, 최상급, 경쟁사보다 낫다는 표현을 만들지 마세요. 입력 상품명은 수정하지 마세요.
+photos에는 각 사진의 용도를 main(정면 상품 중심), detail(제품 디테일/실사용), label(후면 정보 라벨), other 중 분류하세요.
+crop은 전체 제품과 포장, 구성품을 모두 포함하면서 주변 여백만 줄이는 경계 상자입니다. 전체를 1000x1000으로 정규화한 정수 x,y,width,height를 반환하세요.
+제품이나 구성품이 잘릴 우려가 있으면 x=0,y=0,width=1000,height=1000 그대로 유지하세요. main은 가장 적합한 정면 사진에만 지정하세요.
+pageCopy는 hero, introduction, point1~3의 실제 상세페이지용 카피입니다. 각각 headline 50자 이하, description 90자 이하로 작성하세요.
+hero는 소구점 하나의 메인카피, introduction은 제품 정체성, point1~3은 위 소구점 순서에 맞는 제목과 짧은 가치 설명입니다.
+사진이나 라벨로 확인되는 정보만 쓰고 건강 효능을 만들지 마세요. 제품명과 수치를 바꾸지 마세요.'''
         payload={'model':'gpt-4.1-mini','messages':[{'role':'system','content':prompt},{'role':'user','content':content}],
                  'temperature':0.2,'max_completion_tokens':4500,
                  'response_format':{'type':'json_schema','json_schema':{'name':'product_photo_analysis','strict':True,'schema':self.schema()}}}
@@ -261,4 +269,20 @@ points는 서로 다른 실제 특징에서 고객에게 전달할 가치 3개�
                 points.append({'text':text.strip(),'imageIndex':index,'evidence':evidence.strip()})
         if len(points)<3:
             warnings.append('소구점 3개를 확인하지 못했습니다. 라벨·제품 디테일 사진을 추가하거나 직접 입력해주세요.')
-        return {'fields':fields,'points':points,'warnings':warnings,'missing':[name for name,item in fields.items() if not item['value']]}
+        photos=[]
+        seen=set()
+        for photo in result.get('photos',[]) if isinstance(result.get('photos',[]),list) else []:
+            if not isinstance(photo,dict):continue
+            index=photo.get('imageIndex'); crop=photo.get('crop',{})
+            if type(index) is not int or not 1<=index<=count or index in seen or photo.get('role') not in ('main','detail','label','other'):continue
+            if not isinstance(crop,dict) or any(type(crop.get(k)) is not int for k in ('x','y','width','height')):continue
+            if not (0<=crop['x']<1000 and 0<=crop['y']<1000 and 100<=crop['width']<=1000-crop['x'] and 100<=crop['height']<=1000-crop['y']):continue
+            photos.append({'imageIndex':index,'role':photo['role'],'crop':crop});seen.add(index)
+        page_copy={}
+        raw_copy=result.get('pageCopy',{})
+        if isinstance(raw_copy,dict):
+            for key in ('hero','introduction','point1','point2','point3'):
+                item=raw_copy.get(key)
+                if isinstance(item,dict) and isinstance(item.get('headline'),str) and isinstance(item.get('description'),str) and len(item['headline'])<=50 and len(item['description'])<=90:
+                    page_copy[key]={'headline':item['headline'].strip(),'description':item['description'].strip()}
+        return {'fields':fields,'points':points,'warnings':warnings,'missing':[name for name,item in fields.items() if not item['value']], 'photos':photos, 'pageCopy':page_copy}

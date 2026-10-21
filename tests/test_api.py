@@ -124,6 +124,18 @@ class ImageAnalysis(unittest.TestCase):
             with self.assertRaises(CommerceError) as error:client.analyze(self.request())
             self.assertNotIn('sensitive',str(error.exception))
             self.assertIn('401',str(error.exception))
+    def test_photo_roles_crop_bounds_and_page_copy(self):
+        result=self.result()
+        result['photos']=[{'imageIndex':1,'role':'main','crop':{'x':100,'y':50,'width':800,'height':900}},
+                          {'imageIndex':2,'role':'main','crop':{'x':0,'y':0,'width':1000,'height':1000}},
+                          {'imageIndex':1,'role':'label','crop':{'x':900,'y':0,'width':900,'height':1000}}]
+        result['pageCopy']={'hero':{'headline':'실제 사진 기반 카피','description':'표기 정보 기반 설명'},
+                            'point1':{'headline':'가'*51,'description':''}}
+        validated=ImageAnalysisClient.validate_analysis(result,1)
+        self.assertEqual(len(validated['photos']),1)
+        self.assertEqual(validated['photos'][0]['crop']['width'],800)
+        self.assertIn('hero',validated['pageCopy'])
+        self.assertNotIn('point1',validated['pageCopy'])
     def test_ai_429_distinguishes_credit_and_rate_limit(self):
         client=ImageAnalysisClient();client.key='test-ai-key'
         for code,expected in [('insufficient_quota','크레딧'),('rate_limit_exceeded','일시적인 요청 한도')]:
