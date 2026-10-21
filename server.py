@@ -71,6 +71,10 @@ class Handler(SimpleHTTPRequestHandler):
         if self.path == '/api/ai-forget':
             ai_client.forget()
             return {'configured':False}
+        if self.path == '/api/remove-background':
+            return ai_client.remove_background(data)
+        if self.path == '/api/lifestyle-background':
+            return ai_client.lifestyle_background(data)
         if self.path == '/api/analyze-images':
             return ai_client.analyze(data)
         if self.path == '/api/shipping-settings':

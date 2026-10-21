@@ -144,6 +144,45 @@ class ImageAnalysis(unittest.TestCase):
                 with self.assertRaises(CommerceError) as raised:client.analyze(self.request())
                 self.assertIn(expected,str(raised.exception))
                 self.assertNotIn('do not expose',str(raised.exception))
+    def test_background_edit_request_uses_transparency_and_original_alignment(self):
+        client=ImageAnalysisClient();client.key='test-ai-key'
+        encoded=base64.b64encode(b'\x89PNG\r\n\x1a\nmock-png').decode()
+        with patch('commerce.urllib.request.urlopen') as call:
+            call.return_value.__enter__.return_value=io.BytesIO(json.dumps({'data':[{'b64_json':encoded}]}).encode())
+            result=client.remove_background({'base64':encoded,'size':'1024x1536','consent':True})
+            self.assertEqual(result['base64'],encoded)
+            request=call.call_args.args[0]
+            self.assertEqual(request.full_url,'https://api.openai.com/v1/images/edits')
+            self.assertIn(b'name="background"',request.data)
+            self.assertIn(b'transparent',request.data)
+            self.assertIn(b'input_fidelity',request.data)
+            self.assertIn(b'original pixel alignment',request.data)
+            self.assertEqual(call.call_count,1)
+    def test_image_operations_require_key_consent_and_valid_input(self):
+        client=ImageAnalysisClient();client.key=''
+        with patch('commerce.urllib.request.urlopen') as call:
+            with self.assertRaises(CommerceError):client.remove_background({})
+            client.key='test-ai-key'
+            with self.assertRaises(CommerceError):client.lifestyle_background({'consent':False})
+            with self.assertRaises(CommerceError):client.remove_background({'consent':True,'size':'wrong'})
+            self.assertEqual(call.call_count,0)
+    def test_lifestyle_generates_only_empty_scene_and_does_not_fetch_urls(self):
+        client=ImageAnalysisClient();client.key='test-ai-key'
+        with patch('commerce.urllib.request.urlopen') as call:
+            call.return_value.__enter__.return_value=io.BytesIO(json.dumps({'data':[{'url':'https://untrusted.example/image.png'}]}).encode())
+            with self.assertRaises(CommerceError):client.lifestyle_background({'style':'lemon','consent':True})
+            request=call.call_args.args[0]
+            self.assertEqual(request.full_url,'https://api.openai.com/v1/images/generations')
+            self.assertIn('No products',json.loads(request.data)['prompt'])
+            self.assertEqual(json.loads(request.data)['n'],1)
+            self.assertEqual(call.call_count,1)
+    def test_image_error_redacts_remote_response(self):
+        client=ImageAnalysisClient();client.key='test-ai-key'
+        error=urllib.error.HTTPError('url',403,'Forbidden',{},io.BytesIO(b'sensitive-response'))
+        with patch('commerce.urllib.request.urlopen',side_effect=error):
+            with self.assertRaises(CommerceError) as raised:client.lifestyle_background({'style':'sage','consent':True})
+            self.assertIn('403',str(raised.exception))
+            self.assertNotIn('sensitive',str(raised.exception))
     def test_truncated_output_not_applied(self):
         client=ImageAnalysisClient();client.key='test-ai-key'
         response={'choices':[{'finish_reason':'length','message':{'content':'{}'}}]}

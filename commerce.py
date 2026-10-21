@@ -159,6 +159,50 @@ class ImageAnalysisClient:
         self.key = ''
         if os.name == 'nt':
             self.path().unlink(missing_ok=True)
+    def image_result(self, request):
+        try:
+            with urllib.request.urlopen(request, timeout=180) as response:
+                raw=response.read(30000001)
+            if len(raw)>30000000:raise CommerceError('이미지 응답이 너무 큽니다.')
+            result=json.loads(raw)
+            encoded=result['data'][0]['b64_json']
+            image=base64.b64decode(encoded,validate=True)
+            if len(image)>20000000 or not image.startswith(b'\x89PNG\r\n\x1a\n'):
+                raise CommerceError('올바른 PNG 이미지가 반환되지 않았습니다.')
+            return {'base64':encoded}
+        except urllib.error.HTTPError as error:
+            descriptions={401:'저장된 OpenAI API 키를 확인하세요.',403:'이미지 모델 사용 권한 또는 조직 인증이 필요할 수 있습니다.',429:'API 크레딧·사용 한도 또는 일시적 요청 제한을 확인하세요.'}
+            raise CommerceError(f'이미지 API HTTP {error.code}. '+descriptions.get(error.code,'이미지 요청을 처리하지 못했습니다.')) from None
+        except (urllib.error.URLError,TimeoutError):
+            raise CommerceError('이미지 처리 연결이 끊겼습니다. 사용량을 확인한 뒤 직접 재시도하세요. 자동 재시도하지 않습니다.') from None
+        except (KeyError,IndexError,TypeError,ValueError):
+            raise CommerceError('이미지 응답 형식이 올바르지 않습니다. 원본은 유지했습니다.') from None
+    def remove_background(self, data):
+        if not self.key:raise CommerceError('먼저 OpenAI API 키를 설정하세요.')
+        if data.get('consent') is not True:raise CommerceError('이미지 API 처리 동의가 필요합니다.')
+        size=data.get('size')
+        if size not in ('1024x1024','1024x1536','1536x1024'):raise CommerceError('이미지 크기가 올바르지 않습니다.')
+        raw=base64.b64decode(data.get('base64',''),validate=True)
+        if not raw.startswith(b'\x89PNG\r\n\x1a\n') or len(raw)>15000000:raise CommerceError('15MB 이하 PNG 사진을 사용하세요.')
+        prompt='''Create a precise transparent-background cutout of ONLY the actual commercial product and its real packaging in this input. Remove the desk, floor, background, hands, fingers, person, props, and shadows outside the product. Preserve every real product pixel, label, logo, shape and color. Keep the exact original pixel alignment, product position, scale and orientation in the same-sized canvas. Do not center, reposition, enlarge, redraw or complete the product. If a hand occludes part of the product, that unavailable area must be transparent; never invent hidden content. No text additions. Return PNG with transparency. The output alpha is used as a mask on the unchanged original photo; alignment is critical.'''
+        fields={'model':'gpt-image-1','prompt':prompt,'size':size,'background':'transparent','output_format':'png','input_fidelity':'high','quality':'medium','n':'1'}
+        boundary=uuid.uuid4().hex
+        parts=[]
+        for name,value in fields.items():
+            parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'.encode())
+        parts.extend([(f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="product.png"\r\nContent-Type: image/png\r\n\r\n').encode(),raw,f'\r\n--{boundary}--\r\n'.encode()])
+        request=urllib.request.Request('https://api.openai.com/v1/images/edits',data=b''.join(parts),headers={'Authorization':'Bearer '+self.key,'Content-Type':'multipart/form-data; boundary='+boundary},method='POST')
+        return self.image_result(request)
+    def lifestyle_background(self, data):
+        if not self.key:raise CommerceError('먼저 OpenAI API 키를 설정하세요.')
+        if data.get('consent') is not True:raise CommerceError('이미지 API 처리 동의가 필요합니다.')
+        colors={'sage':'warm ivory and muted sage','lemon':'warm ivory with a very soft pale yellow accent','mono':'warm light gray and soft white'}
+        style=data.get('style','sage')
+        if style not in colors:raise CommerceError('지원하지 않는 배경 스타일입니다.')
+        prompt='A photorealistic minimalist premium Korean e-commerce lifestyle background. Empty light stone tabletop in the lower half, soft natural window light, subtle warm shadows and a clean wall. Palette: '+colors[style]+'. Generous empty center and upper space. No products, packaging, food, fruit, ingredients, people, hands, logos, text, letters or decorative badges. The real product will be composited separately without changing it.'
+        request=urllib.request.Request('https://api.openai.com/v1/images/generations',data=json.dumps({'model':'gpt-image-1','prompt':prompt,'size':'1024x1536','quality':'medium','output_format':'png','n':1}).encode(),headers={'Authorization':'Bearer '+self.key,'Content-Type':'application/json'},method='POST')
+        return self.image_result(request)
+
     @staticmethod
     def schema():
         def obj(properties):
@@ -198,14 +242,14 @@ usage 사용/섭취방법, caution 보관/주의사항, ingredient 식품·건�
 각 fields 항목에는 value, 근거 사진 번호 imageIndex(1부터), 라벨 원문 또는 보이는 시각적 근거 evidence를 작성하세요.
 확인 불가/흐림/서로 다른 제품/불일치는 value와 evidence를 빈 문자열, imageIndex를 null로 반환하고 warnings에 이유를 적으세요.
 주의사항/사용법을 길이 제한 때문에 임의로 삭제·요약하지 말고, 정확한 전달이 불가능하면 비우고 경고하세요.
-target만 시각적으로 근거 있는 추천 상황으로 작성할 수 있습니다. 질병·치료·성별/연령 적합성 등을 추정하지 마세요.
+target은 가능한 경우 확인된 사용 목적에 맞는 추천 상황 3~5개를 줄바꿈으로 작성하되 정보가 부족하면 억지로 채우지 마세요. 시각적으로 근거 있는 추천 상황만 작성할 수 있습니다. 질병·치료·성별/연령 적합성 등을 추정하지 마세요.
 points는 서로 다른 실제 특징에서 고객에게 전달할 가치 3개를 짧고 자연스럽게 작성하세요. 각 90자 이하 text, imageIndex, evidence를 필수로 포함하세요.
 사진과 라벨로 3개를 뒷받침하지 못하면 가능한 개수만 반환하고 warnings에 추가 사진이 필요함을 적으세요. 3개를 억지로 채우지 마세요.
 가짜 리뷰, 판매량, 순위, 인증, 효능, 최상급, 경쟁사보다 낫다는 표현을 만들지 마세요. 입력 상품명은 수정하지 마세요.
 photos에는 각 사진의 용도를 main(정면 상품 중심), detail(제품 디테일/실사용), label(후면 정보 라벨), other 중 분류하세요.
 crop은 전체 제품과 포장, 구성품을 모두 포함하면서 주변 여백만 줄이는 경계 상자입니다. 전체를 1000x1000으로 정규화한 정수 x,y,width,height를 반환하세요.
 제품이나 구성품이 잘릴 우려가 있으면 x=0,y=0,width=1000,height=1000 그대로 유지하세요. main은 가장 적합한 정면 사진에만 지정하세요.
-pageCopy는 hero, introduction, point1~3의 실제 상세페이지용 카피입니다. 각각 headline 50자 이하, description 90자 이하로 작성하세요.
+pageCopy는 hero, introduction, point1~3의 실제 상세페이지용 카피입니다. 각각 headline 32자 이하, description 50자 이하, 자연스러운 1~2줄로 작성하세요.
 hero는 소구점 하나의 메인카피, introduction은 제품 정체성, point1~3은 위 소구점 순서에 맞는 제목과 짧은 가치 설명입니다.
 사진이나 라벨로 확인되는 정보만 쓰고 건강 효능을 만들지 마세요. 제품명과 수치를 바꾸지 마세요.'''
         payload={'model':'gpt-4.1-mini','messages':[{'role':'system','content':prompt},{'role':'user','content':content}],
