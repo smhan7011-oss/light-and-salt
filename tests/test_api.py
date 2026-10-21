@@ -124,6 +124,14 @@ class ImageAnalysis(unittest.TestCase):
             with self.assertRaises(CommerceError) as error:client.analyze(self.request())
             self.assertNotIn('sensitive',str(error.exception))
             self.assertIn('401',str(error.exception))
+    def test_ai_429_distinguishes_credit_and_rate_limit(self):
+        client=ImageAnalysisClient();client.key='test-ai-key'
+        for code,expected in [('insufficient_quota','크레딧'),('rate_limit_exceeded','일시적인 요청 한도')]:
+            error=urllib.error.HTTPError('url',429,'Too Many Requests',{},io.BytesIO(json.dumps({'error':{'code':code,'message':'do not expose'}}).encode()))
+            with patch('commerce.urllib.request.urlopen',side_effect=error):
+                with self.assertRaises(CommerceError) as raised:client.analyze(self.request())
+                self.assertIn(expected,str(raised.exception))
+                self.assertNotIn('do not expose',str(raised.exception))
     def test_truncated_output_not_applied(self):
         client=ImageAnalysisClient();client.key='test-ai-key'
         response={'choices':[{'finish_reason':'length','message':{'content':'{}'}}]}

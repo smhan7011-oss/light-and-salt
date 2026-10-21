@@ -1,19 +1,19 @@
 {
-  "version": "2026.10.21.1",
+  "version": "2026.10.21.2",
   "files": {
     ".gitignore": "a597ff3959430fb91ddb29463edccc934b6b176b108cf7d9564092e77e81b0a8",
-    "README.md": "0a4635400b6adae3bd3f24d6dc126a83f04ac0282107d70be62a7c896cf231fa",
-    "commerce.py": "014f5f5e8fc7341ea8f184c30956e16893abfe9dcd82fb684cccf99327e8cee8",
+    "README.md": "d25ed1f3f001a8ebdf5bd1f192a2c634273dbab163c3813828510ec717f612cc",
+    "commerce.py": "794e8d935694191e55e0287da8152e9dbda92c4d1bad904b2e987f0f4fd25d5b",
     "launch.py": "e734b9b6f8d7f188b4d623bfe35a5f115ead332291ee06356ea505a031ac144a",
     "requirements.txt": "0ae3abb44d1083f141842a69606af98cb201b1f3ab9d7e921ef125964a74d3b7",
     "server.py": "ec1f6e9e0db75cea2858558c8a816da78fc00d657370652065776522551af69e",
     "start-windows.bat": "5864e8fefde3889e80fde018d549b627ea17517d0f459479fd543d5014c9b65e",
-    "static/app.js": "3cc57eb8d89c6409c84e65712ed1a457ba5c1ded9e50a117cf45830a64ffc1a7",
+    "static/app.js": "546786ed1602ab139f588b5539c1429c6997f559c7bf3f977b04333f553563f3",
     "static/connect.css": "c460e5337d6f5d7289c89312a31f15e72975dd865473d40da3aebdb939e58afe",
     "static/connect.html": "c5ba3e58546c571415d5067cb3b9d5c31342c0af7c449f25a86e5f6f4e74168f",
     "static/connect.js": "c1f0e02beb3c8750b6995d6e21b61d848756b09031e8c287745fd2ec2428be02",
-    "static/index.html": "0136b353265f7156a025892e96a21859077b97c485cf831a79271b385cb98010",
-    "tests/test_api.py": "2b9778112f63c0030d81fcba87c603fda076f01b424573c204cdd37ed68bee0f",
+    "static/index.html": "ff03b23891e349625c2a0eecf3a738195880f374601d87e403957802661b7353",
+    "tests/test_api.py": "2f134a64b36c178f451668a798aba3d3a2d56fdb78687895f3d94153d128a66f",
     "tests/test_updater.py": "4be9dee93eec0aa55e32979a5f93e3b8b3a2e8ca835f2a38c7c0e18f9461db03",
     "updater.py": "717199ece8527a6dd8e839342fbd79915ae3b08351b3f487b8006c62202a185c"
   }

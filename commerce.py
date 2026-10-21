@@ -209,7 +209,17 @@ points는 서로 다른 실제 특징에서 고객에게 전달할 가치 3개�
             with urllib.request.urlopen(request,timeout=100) as response:
                 result=json.loads(response.read(200000))
         except urllib.error.HTTPError as error:
-            descriptions={401:'AI API 키를 확인하세요.',403:'AI API 접근 권한을 확인하세요.',429:'AI API 사용 한도·결제 잔액을 확인하세요.'}
+            code = ''
+            try:
+                body = json.loads(error.read(16000))
+                code = body.get('error', {}).get('code', '')
+            except (ValueError, AttributeError):
+                pass
+            descriptions={401:'AI API 키를 확인하세요.',403:'AI API 접근 권한을 확인하세요.',429:'AI API 사용 한도 또는 일시적인 요청 제한입니다. 결제·사용량을 확인하고 잠시 후 다시 시도하세요.'}
+            if error.code == 429 and code in ('insufficient_quota', 'billing_hard_limit_reached'):
+                descriptions[429] = 'AI API 크레딧 또는 결제 한도가 부족합니다. OpenAI API 결제 설정에서 잔액·한도를 확인하세요. ChatGPT 구독과는 별도입니다.'
+            elif error.code == 429 and code == 'rate_limit_exceeded':
+                descriptions[429] = 'AI API의 일시적인 요청 한도를 초과했습니다. 잠시 기다린 뒤 분석 버튼을 한 번 눌러주세요. 자동 재시도하지 않습니다.'
             raise CommerceError(f'AI API HTTP {error.code}. '+descriptions.get(error.code,'잠시 후 다시 시도해주세요.')) from None
         except (urllib.error.URLError,TimeoutError):
             raise CommerceError('AI 서버에 연결하지 못했습니다. 인터넷 연결을 확인하세요. 자동 재시도하지 않습니다.') from None
